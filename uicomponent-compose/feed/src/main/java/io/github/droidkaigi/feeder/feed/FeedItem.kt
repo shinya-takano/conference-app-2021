@@ -19,8 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,22 +42,35 @@ import io.github.droidkaigi.feeder.fakeFeedContents
 fun FeedItem(
     feedItem: FeedItem,
     favorited: Boolean,
+    isPlayingPodcast: Boolean = false,
     showMediaLabel: Boolean = false,
     onClick: (FeedItem) -> Unit,
     onFavoriteChange: (FeedItem) -> Unit,
+    onClickPlayPodcastButton: (FeedItem) -> Unit,
 ) {
     ConstraintLayout(
         modifier = Modifier
+            .semantics { testTag = "FeedItem" }
             .clickable(
                 onClick = { onClick(feedItem) }
             )
             .fillMaxWidth()
             .semantics(mergeDescendants = true) { }
     ) {
-        val (media, image, title, date, favorite, speakers) = createRefs()
+        val (
+            media,
+            image,
+            title,
+            date,
+            favorite,
+            favoriteAnim,
+            speakers,
+            audioControl,
+        ) = createRefs()
         if (showMediaLabel) {
             Text(
                 modifier = Modifier
+                    .semantics { testTag = "MediaLabel" }
                     .constrainAs(media) {
                         top.linkTo(parent.top, 12.dp)
                         start.linkTo(parent.start, 24.dp)
@@ -86,6 +101,18 @@ fun FeedItem(
                 .aspectRatio(1F / 1F),
             contentScale = ContentScale.Crop,
             contentDescription = null
+        )
+        AudioControlButton(
+            isPlayingPodcast = isPlayingPodcast,
+            isVisible = feedItem is FeedItem.Podcast,
+            modifier = Modifier
+                .constrainAs(audioControl) {
+                    top.linkTo(image.top)
+                    start.linkTo(image.start)
+                    bottom.linkTo(image.bottom)
+                    end.linkTo(image.end)
+                }
+                .clickable { onClickPlayPodcastButton(feedItem) }
         )
         Text(
             modifier = Modifier.constrainAs(title) {
@@ -123,6 +150,17 @@ fun FeedItem(
                 style = typography.caption
             )
         }
+        FavoriteAnimation(
+            visible = favorited,
+            modifier = Modifier
+                .constrainAs(favoriteAnim) {
+                    width = Dimension.value(80.dp)
+                    height = Dimension.value(80.dp)
+                    start.linkTo(favorite.start)
+                    end.linkTo(favorite.end)
+                    bottom.linkTo(favorite.bottom, 12.dp)
+                }
+        )
         IconToggleButton(
             checked = false,
             modifier = Modifier.constrainAs(favorite) {
@@ -131,23 +169,48 @@ fun FeedItem(
                 end.linkTo(parent.end, 16.dp)
             },
             content = {
-                Icon(
-                    painterResource(
-                        if (favorited) {
-                            R.drawable
-                                .ic_baseline_favorite_24
-                        } else {
-                            R.drawable
-                                .ic_baseline_favorite_border_24
-                        }
-                    ),
-                    "favorite"
-                )
+                if (favorited) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_baseline_favorite_24),
+                        contentDescription = "favorite",
+                        modifier = Modifier.testTag("Favorite"),
+                        tint = Color.Red
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_baseline_favorite_border_24),
+                        contentDescription = "favorite",
+                        modifier = Modifier.testTag("NotFavorite")
+                    )
+                }
             },
             onCheckedChange = {
                 onFavoriteChange(feedItem)
             }
         )
+    }
+}
+
+@Composable
+private fun AudioControlButton(
+    modifier: Modifier,
+    isVisible: Boolean,
+    isPlayingPodcast: Boolean,
+) {
+    if (isVisible) {
+        if (isPlayingPodcast) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_baseline_pause_24),
+                modifier = modifier,
+                contentDescription = "pause"
+            )
+        } else {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_baseline_play_arrow_24),
+                modifier = modifier,
+                contentDescription = "play"
+            )
+        }
     }
 }
 
@@ -177,7 +240,8 @@ fun PreviewFeedItem() {
             favorited = false,
             showMediaLabel = false,
             onClick = { },
-            onFavoriteChange = { }
+            onFavoriteChange = { },
+            onClickPlayPodcastButton = { },
         )
     }
 }
@@ -192,7 +256,8 @@ fun PreviewFeedItemWithMedia() {
             favorited = false,
             showMediaLabel = true,
             onClick = { },
-            onFavoriteChange = { }
+            onFavoriteChange = { },
+            onClickPlayPodcastButton = { },
         )
     }
 }
@@ -206,8 +271,10 @@ fun PreviewFeedItemWithSpeaker() {
             feedItem = feedItem,
             favorited = false,
             showMediaLabel = true,
+            isPlayingPodcast = false,
             onClick = { },
-            onFavoriteChange = { }
+            onFavoriteChange = { },
+            onClickPlayPodcastButton = { },
         )
     }
 }
